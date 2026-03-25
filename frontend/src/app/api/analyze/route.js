@@ -83,8 +83,12 @@ export async function POST(request) {
 
     return NextResponse.json({ success: true, data: newAnalysis }, { status: 201 });
 
-  } catch (error) {
-    console.error("Gemini API Error:", error);
-    return NextResponse.json({ success: false, error: "Failed to analyze resume." }, { status: 500 });
-  }
+  } catch (err) {
+    // Check if the error is related to API overload
+    if (err.message.includes('503') || err.message.toLowerCase().includes('overloaded') || err.message.toLowerCase().includes('demand')) {
+      setError('The AI servers are currently experiencing high traffic. Please wait 30 seconds and try again.');
+    } else {
+      setError(err.message || 'Something went wrong during analysis.');
+    }
+  } 
 }
