@@ -19,15 +19,15 @@ export async function POST(request) {
       return NextResponse.json({ error: "Resume and Job Description are required." }, { status: 400 });
     }
 
-    // 2. Convert the PDF file to base64 inline data for Gemini
+
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const base64Pdf = buffer.toString('base64');
 
-    // 3. Initialize Gemini Model
+
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    // 4. The strict prompt (Same as before)
+
     const prompt = `
       You are an expert ATS (Applicant Tracking System) and Senior Technical Recruiter.
       Analyze the provided PDF Resume against the following Job Description.
@@ -45,7 +45,7 @@ export async function POST(request) {
           {
             "resumeSection": "<e.g., Experience, Skills, Summary>",
             "issue": "<Explain what is currently wrong, missing, or weakly phrased>",
-            "correction": "<Provide exact, actionable text the user can copy/paste to fix it>"
+            "correction": "<Provide the exact, plain English phrasing the user should use. DO NOT include any LaTeX code in this field. Keep it readable.>"
           }
         ],
         "aiFeedback": "<A short, professional summary paragraph of their overall fit>",
@@ -53,7 +53,7 @@ export async function POST(request) {
       }
     `;
 
-    // 5. Send BOTH the prompt and the PDF data to Gemini
+ 
     const result = await model.generateContent([
       prompt,
       {
@@ -66,13 +66,13 @@ export async function POST(request) {
 
     let textResponse = result.response.text();
 
-    // Clean and parse the JSON
+
     textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
     const aiData = JSON.parse(textResponse);
 
-    // 6. Save to Database
+
     const newAnalysis = await Analysis.create({
-      userId: '000000000000000000000000', // Mock ID until Auth is added
+      userId: '000000000000000000000000', 
       jobTitle: jobTitle || 'Analyzed Role',
       matchScore: aiData.matchScore,
       missingKeywords: aiData.missingKeywords,
@@ -84,7 +84,7 @@ export async function POST(request) {
     return NextResponse.json({ success: true, data: newAnalysis }, { status: 201 });
 
   } catch (err) {
-    // Check if the error is related to API overload
+
     if (err.message.includes('503') || err.message.toLowerCase().includes('overloaded') || err.message.toLowerCase().includes('demand')) {
       setError('The AI servers are currently experiencing high traffic. Please wait 30 seconds and try again.');
     } else {
