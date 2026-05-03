@@ -45,11 +45,20 @@ export default function Home() {
       formData.append('resume', file);
       formData.append('jobDescription', jobDescription);
 
+      // Make sure the URL matches your actual API route!
       const analyzeRes = await fetch('/api/analyze', { method: 'POST', body: formData });
+      
+      // NEW: Check if the response is empty or failed before parsing JSON
+      if (!analyzeRes.ok) {
+         const errorText = await analyzeRes.text(); // Read as text in case it's HTML
+         throw new Error(`Server Error: ${analyzeRes.status}. ${errorText.substring(0, 50)}`);
+      }
+
       const analyzeData = await analyzeRes.json();
 
       if (!analyzeData.success) throw new Error(analyzeData.error);
       setResult(analyzeData.data);
+      
     } catch (err) {
       setError(err.message.includes('503') ? 'Servers are busy. Please try again in 30 seconds.' : err.message || 'Something went wrong.');
     } finally {

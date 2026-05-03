@@ -84,11 +84,19 @@ export async function POST(request) {
     return NextResponse.json({ success: true, data: newAnalysis }, { status: 201 });
 
   } catch (err) {
+    console.error("Backend Error:", err); // Helpful for your terminal
 
+    // Properly return a JSON error response instead of using React's setError
     if (err.message.includes('503') || err.message.toLowerCase().includes('overloaded') || err.message.toLowerCase().includes('demand')) {
-      setError('The AI servers are currently experiencing high traffic. Please wait 30 seconds and try again.');
+      return NextResponse.json(
+        { success: false, error: 'The AI servers are currently experiencing high traffic. Please wait 30 seconds and try again.' }, 
+        { status: 503 }
+      );
     } else {
-      setError(err.message || 'Something went wrong during analysis.');
+      return NextResponse.json(
+        { success: false, error: err.message || 'Something went wrong during analysis.' }, 
+        { status: 500 }
+      );
     }
-  } 
+  }
 }
