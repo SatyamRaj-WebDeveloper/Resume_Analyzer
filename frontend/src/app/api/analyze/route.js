@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import connectToDatabase from '../../lib/mongodb';
 import Analysis from '../../../../models/Analysis';
 
-export const maxDuration = 120;
+export const maxDuration = 120; // Change to 60 if Vercel throws a build error!
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -21,14 +21,11 @@ export async function POST(request) {
       return NextResponse.json({ error: "Resume and Job Description are required." }, { status: 400 });
     }
 
-
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const base64Pdf = buffer.toString('base64');
 
-
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
 
     const prompt = `
       You are an expert ATS (Applicant Tracking System) and Senior Technical Recruiter.
@@ -55,23 +52,45 @@ export async function POST(request) {
       }
     `;
 
- 
-    const result = await model.generateContent([
-      prompt,
-      {
-        inlineData: {
-          data: base64Pdf,
-          mimeType: "application/pdf"
+    // === NEW PERMANENT FIX: AUTOMATIC RETRY LOGIC ===
+    let result;
+    let attempt = 0;
+    const MAX_RETRIES = 3;
+
+    while (attempt < MAX_RETRIES) {
+      try {
+        result = await model.generateContent([
+          prompt,
+          {
+            inlineData: {
+              data: base64Pdf,
+              mimeType: "application/pdf"
+            }
+          }
+        ]);
+        break; // If successful, immediately break out of the retry loop
+      } catch (retryErr) {
+        attempt++;
+        const isBusyError = retryErr.message.includes('503') || 
+                            retryErr.message.toLowerCase().includes('overloaded') || 
+                            retryErr.message.toLowerCase().includes('demand');
+        
+        // If we are out of retries, OR the error is not a 503 (e.g., bad API key), throw it to the main catch block
+        if (attempt >= MAX_RETRIES || !isBusyError) {
+          throw retryErr; 
         }
+        
+        // Wait for 5 seconds before trying again (silent server-side wait)
+        console.warn(`[API Busy] Retrying request... Attempt ${attempt} of ${MAX_RETRIES}`);
+        await new Promise(resolve => setTimeout(resolve, 5000));
       }
-    ]);
+    }
+    // === END RETRY LOGIC ===
 
     let textResponse = result.response.text();
 
-
     textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
     const aiData = JSON.parse(textResponse);
-
 
     const newAnalysis = await Analysis.create({
       userId: '000000000000000000000000', 
@@ -88,7 +107,7 @@ export async function POST(request) {
   } catch (err) {
     console.error("Backend Error:", err); 
 
-
+    // This catch block now only triggers if all 3 retries fail, or if there is a different kind of error.
     if (err.message.includes('503') || err.message.toLowerCase().includes('overloaded') || err.message.toLowerCase().includes('demand')) {
       return NextResponse.json(
         { success: false, error: 'The AI servers are currently experiencing high traffic. Please wait 30 seconds and try again.' }, 
