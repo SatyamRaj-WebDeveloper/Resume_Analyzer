@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import connectToDatabase from '../../lib/mongodb';
 import Analysis from '../../../../models/Analysis';
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
