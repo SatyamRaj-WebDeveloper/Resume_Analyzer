@@ -3,6 +3,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import connectToDatabase from '../../lib/mongodb';
 import Analysis from '../../../../models/Analysis';
 
+export const maxDuration = 60;
+
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 export async function POST(request) {
@@ -84,9 +86,9 @@ export async function POST(request) {
     return NextResponse.json({ success: true, data: newAnalysis }, { status: 201 });
 
   } catch (err) {
-    console.error("Backend Error:", err); // Helpful for your terminal
+    console.error("Backend Error:", err); 
 
-    // Properly return a JSON error response instead of using React's setError
+
     if (err.message.includes('503') || err.message.toLowerCase().includes('overloaded') || err.message.toLowerCase().includes('demand')) {
       return NextResponse.json(
         { success: false, error: 'The AI servers are currently experiencing high traffic. Please wait 30 seconds and try again.' }, 
